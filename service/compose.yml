@@ -1,0 +1,61 @@
+name: test-vw-connector
+
+volumes:
+  vaultwarden-data:
+
+services:
+  mail:
+    image: my/maildump
+    pull_policy: never
+    build:
+      context: ./assets/mail
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - maildump-container
+    volumes:
+      - type: bind
+        source: ./maildump
+        target: /var/maildump
+        bind:
+          create_host_path: true
+    environment:
+      - TZ=Asia/Tokyo
+      - MAIL_HOST=myserver.home
+      - MAIL_PORT=25
+      - MAIL_DUMP_DIR=/var/maildump
+
+  app:
+    image: vaultwarden/server:1.34.1
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - vaultwarden-container
+    ports:
+      - "8190:80"
+    healthcheck:
+      test: curl -f -s http://localhost:80 || exit 1
+      start_period: 300s
+      start_interval: 3s
+      timeout: 5s
+      interval: 300s
+      retries: 3
+    volumes:
+      - type: volume
+        source: vaultwarden-data
+        target: /data
+    environment:
+      - TZ=Asia/Tokyo
+      - DOMAIN=http://localhost:8190
+      - INVITATIONS_ALLOWED=true
+      - SIGNUPS_ALLOWED=true
+      - ADMIN_TOKEN=$$argon2id$$v=19$$m=65540,t=3,p=4$$usxm21N0w4LWKCXIbfB8MUW7nChwXu8oUAWcNcF/C1w$$r2xZQyHQLvHaI0NUFaJFgts4TkWlXMq5pv8OcIa1WmU
+      - SMTP_HOST=maildump-container
+      - SMTP_PORT=25
+      - SMTP_SECURITY=off
+      - SMTP_FROM=vaultwarden@myserver.home
+      - SMTP_FROM_NAME=Vaultwarden
+      - SMTP_AUTH_MECHANISM=Plain
+      - SMTP_ACCEPT_INVALID_HOSTNAMES=true
