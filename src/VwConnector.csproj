@@ -12,4 +12,40 @@
     </AssemblyAttribute>
   </ItemGroup>
 
+  <PropertyGroup>
+    <PackageId>VwConnector</PackageId>
+    <PackageDescription>Request helper for vaultwarden</PackageDescription>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>vaultwarden</PackageTags>
+    <PackageReadmeFile>readme.md</PackageReadmeFile>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Authors>toras9000</Authors>
+    <Company />
+    <Version>1.34.1-rev.1</Version>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageProjectUrl>https://github.com/toras9000/VwConnector</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/toras9000/VwConnector</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+  <PropertyGroup>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EmbedAllSources>true</EmbedAllSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
+  <PropertyGroup>
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)/../packages/$(Configuration)</PackageOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="../readme.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
 </Project>
