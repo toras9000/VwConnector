@@ -3,8 +3,40 @@ using System.Text.Json.Serialization;
 
 namespace VwConnector;
 
+/// <summary>Vaultwardenクライアント処理インタフェース</summary>
+public interface IVwConnector
+{
+    /// <summary>サービスベースアドレス</summary>
+    public Uri BaseUri { get; }
+
+    /// <summary>ユーティリティ処理関連のメソッドグループ</summary>
+    /// <remarks>このグループに含まれるメソッドはネットワーク接続を利用しないローカル処理です</remarks>
+    public IVwUtility Utility { get; }
+
+    /// <summary>接続系のメソッドグループ</summary>
+    public IVwIdentity Identity { get; }
+
+    /// <summary>Adminエンドポイント関連のメソッドグループ</summary>
+    public IVwAdmin Admin { get; }
+
+    /// <summary>ユーザ情報関連のメソッドグループ</summary>
+    public IVwUser User { get; }
+
+    /// <summary>組織関連のメソッドグループ</summary>
+    public IVwOrganization Organization { get; }
+
+    /// <summary>保管項目関連のメソッドグループ</summary>
+    public IVwCipher Cipher { get; }
+
+    /// <summary>Bitwarden Public API関連のメソッドグループ</summary>
+    public IVwPublic Public { get; }
+
+    /// <summary>任意エンドポイントへの要求関連</summary>
+    public IVwRaw Raw { get; }
+}
+
 /// <summary>Vaultwardenクライアント処理クラス</summary>
-public class VaultwardenConnector : IDisposable
+public class VaultwardenConnector : IVwConnector, IDisposable
 {
     /// <summary>コンストラクタ</summary>
     /// <param name="baseUri">サービスのベースURL。エンドポイントパス 'api/***' などを付与するベースとなる。</param>

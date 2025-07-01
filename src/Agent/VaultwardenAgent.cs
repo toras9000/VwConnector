@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
 namespace VwConnector.Agent;
 
@@ -17,15 +18,63 @@ public record DecryptedCipherItem(
     DecryptedCipherItemSshKey? SshKey = default
 );
 
+public record DecryptedCollection(string Id, string OrgId, string Name, string[] ExternalId);
+
+public record AgentCreateCipherArgs(string Name, string? FolderId = default, string? OrgId = default, string? Notes = default);
+public record AgentCreatedCipher(string Id);
+public record AgentCreateLoginArgs(string? Username = default, string? Password = default, string? Totp = default, string? Uri = default);
+
+public record AgentCreatedOrg(string Id, string Name, string BillingEmail);
+public record AgentCreatedFolder(string Id, string Name);
+public record AgentCreatedCollection(string Id, string Name, string OrgId);
+
+public record AgentConfirmMemberArgs(string MemberId, string UserId);
+
+public interface IAgentAffectOperators
+{
+    ValueTask<AgentCreatedCipher> CreateCipherItemLoginAsync(AgentCreateCipherArgs cipher, AgentCreateLoginArgs login, string[]? collectionIds = default, CancellationToken cancelToken = default);
+    ValueTask<AgentCreatedCipher> CreateCipherItemNotesAsync(AgentCreateCipherArgs cipher, string[]? collectionIds = default, CancellationToken cancelToken = default);
+    ValueTask<AgentCreatedFolder> CreateFolderAsync(string name, CancellationToken cancelToken = default);
+    ValueTask<AgentCreatedOrg> CreateOrganizationAsync(string name, string defaultCollection, CancellationToken cancelToken = default);
+    ValueTask<AgentCreatedCollection> CreateCollectionAsync(string orgId, string name, CancellationToken cancelToken = default);
+    ValueTask ConfirmMemberAsync(string orgId, AgentConfirmMemberArgs member, CancellationToken cancelToken = default);
+}
+
 public class VaultwardenAgent : IDisposable
 {
+    public static async ValueTask<VaultwardenAgent> CreateAsync(Uri service, UserContext user, CancellationToken cancelToken = default)
+    {
+        var connector = default(VaultwardenConnector);
+        try
+        {
+            connector = new VaultwardenConnector(service);
+            var connection = await createConnectionAsync(connector, user, cancelToken);
+            return new(connector, own: true, user, connection);
+        }
+        catch
+        {
+            connector?.Dispose();
+            throw;
+        }
+    }
+
+    public static async ValueTask<VaultwardenAgent> CreateAsync(VaultwardenConnector connector, UserContext user, CancellationToken cancelToken = default)
+    {
+        var connection = await createConnectionAsync(connector, user, cancelToken);
+        return new(connector, own: false, user, connection);
+    }
+
+    public IVwConnector Connector => this.connector;
+
+    public IAgentAffectOperators Affect { get; }
+
     public DecryptedCipherItem? DecryptItem(CipherItem item)
         => dcryptChiperItem(item);
 
     public async ValueTask<DecryptedCipherItem[]> GetItemsAsync(CancellationToken cancelToken = default)
     {
         var items = await this.connector.Cipher.GetItemsAsync(this.session.Token, cancelToken);
-        var decrypted = items.data.Select(i => DecryptItem(i)).Where(i => i != null).Select(i => i!).ToArray();
+        var decrypted = items.data.Select(i => dcryptChiperItem(i)).Where(i => i != null).Select(i => i!).ToArray();
         return decrypted;
     }
 
@@ -52,6 +101,17 @@ public class VaultwardenAgent : IDisposable
         return default;
     }
 
+    public async ValueTask<DecryptedCollection[]> GetCollectionsAsync(string orgId, CancellationToken cancelToken = default)
+    {
+        if (!this.session.Orgs.TryGetValue(orgId, out var orgInfo)) throw new NotSupportedException();
+        var collections = await this.connector.Organization.GetCollectionsAsync(this.session.Token, orgId, cancelToken);
+        var decrypted = collections.data
+            .Select(c => new DecryptedCollection(c.id, c.organizationId, decryptEncText(orgInfo.Key.EncKey, c.name) ?? "", c.externalId))
+            .Where(i => i != null).Select(i => i!)
+            .ToArray();
+        return decrypted;
+    }
+
     public void Dispose()
     {
         if (this.own)
@@ -62,39 +122,144 @@ public class VaultwardenAgent : IDisposable
         }
     }
 
-    public static async ValueTask<VaultwardenAgent> CreateAsync(Uri service, UserContext user, CancellationToken cancelToken = default)
-    {
-        var connector = default(VaultwardenConnector);
-        try
-        {
-            connector = new VaultwardenConnector(service);
-            var connection = await createConnectionAsync(connector, user, cancelToken);
-            return new(connector, own: true, user, connection);
-        }
-        catch
-        {
-            connector?.Dispose();
-            throw;
-        }
-    }
-
-    public static async ValueTask<VaultwardenAgent> CreateAsync(VaultwardenConnector connector, UserContext user, CancellationToken cancelToken = default)
-    {
-        var connection = await createConnectionAsync(connector, user, cancelToken);
-        return new(connector, own: false, user, connection);
-    }
-
-
     private VaultwardenAgent(VaultwardenConnector connector, bool own, UserContext user, SessionContext session)
     {
         this.connector = connector;
         this.own = own;
         this.user = user;
         this.session = session;
+        this.Affect = new AffectOperators(this);
+    }
+
+    private class AffectOperators : IAgentAffectOperators
+    {
+        public AffectOperators(VaultwardenAgent outer) { this.outer = outer; }
+
+        public async ValueTask<AgentCreatedCipher> CreateCipherItemLoginAsync(AgentCreateCipherArgs cipher, AgentCreateLoginArgs login, string[]? collectionIds, CancellationToken cancelToken = default)
+        {
+            var userKey = this.outer.session.UserKey;
+            var itemArgs = new CreateItemArgs(
+                cipher: new(
+                    type: CipherType.Login,
+                    name: encryptText(userKey, cipher.Name).BuildString(),
+                    folderId: cipher.FolderId,
+                    organizationId: cipher.OrgId,
+                    notes: encryptText(userKey, cipher.Notes)?.BuildString(),
+                    login: new(
+                        username: encryptText(userKey, login.Username)?.BuildString(),
+                        password: encryptText(userKey, login.Password)?.BuildString(),
+                        totp: encryptText(userKey, login.Totp)?.BuildString(),
+                        uri: encryptText(userKey, login.Uri)?.BuildString()
+                    )
+                ),
+               collectionIds: collectionIds ?? []
+            );
+            var item = await this.outer.connector.Cipher.CreateItemAsync(this.outer.session.Token, itemArgs);
+            return new(item.id);
+        }
+
+        public async ValueTask<AgentCreatedCipher> CreateCipherItemNotesAsync(AgentCreateCipherArgs cipher, string[]? collectionIds, CancellationToken cancelToken = default)
+        {
+            var userKey = this.outer.session.UserKey;
+            var itemArgs = new CreateItemArgs(
+                cipher: new(
+                    type: CipherType.SecureNote,
+                    name: encryptText(userKey, cipher.Name).BuildString(),
+                    folderId: cipher.FolderId,
+                    organizationId: cipher.OrgId,
+                    notes: encryptText(userKey, cipher.Notes)?.BuildString(),
+                    secureNote: new(0)
+                ),
+               collectionIds: collectionIds ?? []
+            );
+            var item = await this.outer.connector.Cipher.CreateItemAsync(this.outer.session.Token, itemArgs);
+            return new(item.id);
+        }
+
+        public async ValueTask<AgentCreatedFolder> CreateFolderAsync(string name, CancellationToken cancelToken = default)
+        {
+            var encName = encryptText(this.outer.session.UserKey, name);
+            var folder = await this.outer.connector.User.CreateFolderAsync(this.outer.session.Token, new(encName.BuildString()), cancelToken);
+            this.outer.session.Folders[folder.id] = folder;
+            var decName = decryptText(this.outer.session.UserKey.EncKey, folder.name) ?? "";
+            return new AgentCreatedFolder(folder.id, decName);
+        }
+
+        public async ValueTask<AgentCreatedOrg> CreateOrganizationAsync(string name, string? defaultCollection, CancellationToken cancelToken)
+        {
+            var newOrgKey = SymmetricCryptoKey.From(this.outer.connector.Utility.GenerateKeyData());
+            var encOrgKey = this.outer.connector.Utility.EncryptRsa(this.outer.session.UserPublicKey, newOrgKey.ToBytes());
+            var keyPair = this.outer.connector.Utility.GenerateRsaKeyPair();
+            var prvKeyEnc = this.outer.connector.Utility.EncryptAes(newOrgKey, keyPair.PrivateKey, hmac: true);
+            var defCollectionName = string.IsNullOrEmpty(defaultCollection) ? "DefaultCollection" : defaultCollection;
+            var defCollectionEnc = encryptText(newOrgKey, defCollectionName);
+
+            var orgArgs = new CreateOrgArgs(
+                name: name,
+                collectionName: defCollectionEnc.BuildString(),
+                billingEmail: this.outer.session.Profile.email,
+                key: encOrgKey.BuildString(),
+                keys: [keyPair.PublicKey.EncodeBase64(), prvKeyEnc.BuildString()],
+                planType: PlanType.Free
+            );
+            var orgResult = await this.outer.connector.Organization.CreateAsync(this.outer.session.Token, orgArgs, cancelToken);
+            var userProfile = await this.outer.connector.User.GetProfileAsync(this.outer.session.Token, cancelToken);
+            this.outer.session.Orgs.Clear();
+            foreach (var org in userProfile.organizations)
+            {
+                var orgKey = SymmetricCryptoKey.From(this.outer.connector.Utility.Decrypt(this.outer.session.UserPrivateKey, EncryptedData.Parse(org.key)));
+                this.outer.session.Orgs[org.id] = new OrgInfo(org, orgKey);
+            }
+            return new AgentCreatedOrg(orgResult.id, orgResult.name, orgResult.billingEmail);
+        }
+
+        public async ValueTask<AgentCreatedCollection> CreateCollectionAsync(string orgId, string name, CancellationToken cancelToken = default)
+        {
+            if (!this.outer.session.Orgs.TryGetValue(orgId, out var org)) throw new ArgumentException();
+
+            var colNameEnc = encryptText(org.Key, name);
+            var ownerMember = new VwCollectionMembership(org.Profile.organizationUserId, readOnly: false, hidePasswords: false, manage: true);
+            var colArgs = new CreateCollectionArgs(
+                name: colNameEnc.BuildString(),
+                users: [ownerMember],
+                groups: []
+            );
+            var collection = await this.outer.connector.Organization.CreateCollectionAsync(this.outer.session.Token, orgId, colArgs, cancelToken);
+            var decName = decryptText(org.Key.EncKey, collection.name) ?? "";
+            return new AgentCreatedCollection(collection.id, decName, collection.organizationId);
+        }
+
+        public async ValueTask ConfirmMemberAsync(string orgId, AgentConfirmMemberArgs member, CancellationToken cancelToken = default)
+        {
+            if (!this.outer.session.Orgs.TryGetValue(orgId, out var org)) throw new ArgumentException();
+
+            var memberPubKey = await this.outer.connector.User.GetPublicKeyAsync(this.outer.session.Token, member.UserId, cancelToken);
+            var memberPubKeyBytes = memberPubKey.publicKey.AsSpan().DecodeBase64();
+            var confirmKey = this.outer.connector.Utility.EncryptRsa(memberPubKeyBytes!, org.Key.ToBytes());
+            await this.outer.connector.Organization.ConfirmMemberAsync(this.outer.session.Token, orgId, member.MemberId, new(confirmKey.BuildString()), cancelToken);
+        }
+
+        private readonly VaultwardenAgent outer;
+
+        [return: NotNullIfNotNull(nameof(text))]
+        private EncryptedData? encryptText(SymmetricCryptoKey key, string? text) => text == null ? null : this.outer.connector.Utility.EncryptAes(key, text.EncodeUtf8(), hmac: true);
+
+        [return: NotNullIfNotNull(nameof(text))]
+        private string? decryptText(byte[] key, string? text) => text == null ? null : this.outer.decryptEncText(key, text);
     }
 
     private record OrgInfo(VwOrganizationProfile Profile, SymmetricCryptoKey Key);
-    private record SessionContext(ConnectTokenResult Token, VwUserProfile Profile, SymmetricCryptoKey UserKey, Dictionary<string, VwFolder> Folders, Dictionary<string, OrgInfo> Orgs);
+    private record SessionContext(
+        ConnectTokenResult Token,
+        string RefreshToken,
+        KdfConfig Kdf,
+        VwUserProfile Profile,
+        SymmetricCryptoKey UserKey,
+        byte[] UserPrivateKey,
+        byte[] UserPublicKey,
+        Dictionary<string, VwFolder> Folders,
+        Dictionary<string, OrgInfo> Orgs
+    );
 
     private VaultwardenConnector connector;
     private readonly bool own;
@@ -117,6 +282,8 @@ public class VaultwardenAgent : IDisposable
         );
         var userToken = await connector.Identity.ConnectTokenAsync(userCredential, cancelToken);
         var userProfile = await connector.User.GetProfileAsync(userToken, cancelToken);
+        var userPubKey = await connector.User.GetPublicKeyAsync(userToken, userProfile.id);
+        var userPubKeyBin = userPubKey.publicKey.AsSpan().DecodeBase64() ?? [];
         var userFolders = await connector.User.GetFoldersAsync(userToken, cancelToken);
         var stretchKey = connector.Utility.CreateStretchKey(user.Mail, user.Password, userPrelogin);
         var userKey = SymmetricCryptoKey.From(connector.Utility.Decrypt(stretchKey.EncKey, EncryptedData.Parse(userProfile.key)));
@@ -126,9 +293,10 @@ public class VaultwardenAgent : IDisposable
             o => new OrgInfo(o, SymmetricCryptoKey.From(connector.Utility.Decrypt(userPrivateKey, EncryptedData.Parse(o.key))))
         );
         var folders = userFolders.data.ToDictionary(f => f.id);
-        return new(userToken, userProfile, userKey, folders, orgKeys);
+        return new(userToken, userToken.refresh_token, userToken.ToKdfConfig(), userProfile, userKey, userPrivateKey, userPubKeyBin, folders, orgKeys);
     }
 
+    [return: NotNullIfNotNull(nameof(text))]
     private string? decryptEncText(byte[] key, string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
