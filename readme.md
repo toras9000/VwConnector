@@ -13,6 +13,12 @@ Care must be taken because incorrectly invoking an endpoint can cause problems.
 Be especially careful with those that involve renewals.  
 For example, if you invoke a request to create a collection with a name that is not properly encrypted, it appears that Web Vault will not be able to display any items, including existing items.  
 
+Package versions are in semantic versioning format, but are numbered according to the following arrangement.  
+The version number of this package always uses the pre-release versioning format.   
+The core version part represents the version of the target server.  
+The version (rev.XX) portion of the pre-release is used to indicate the version of the library, not as a pre-release.  
+Therefore, differences in pre-release version numbers are not necessarily trivial changes.  
+
 
 The primary class included in the library is `VaultwardenConnector`.  
 An example of using this class to read a cipher item is shown below.  
