@@ -13,6 +13,12 @@ Vaultwardenのいくつかのエンドポイントを呼び出すヘルパーク
 特に更新を伴うものには気を付けてください。  
 たとえば、正しく暗号化されていない名称を指定してコレクションの作成要求を呼び出した場合、Web Vault は既存のアイテムも含めて一切表示できなくなるようです。  
 
+パッケージバージョンはセマンティックバージョン形式ですが、以下のように意味づけを行っています。  
+このパッケージでは常にプレリリース番号付きのバージョン番号を利用します。  
+コアバージョン部分は、ライブラリがターゲットとするサーバのバージョンを表しています。  
+プレリリース番号部分(rev.XX)は、プレリリースとしてではなく、(同じコアバージョンに対する)ライブラリのバージョンを表すために使っています。  
+したがって、プレリリース番号の違いは、必ずしも些細な変更とは限りません。  
+
 
 ライブラリに含む主要なクラスは `VaultwardenConnector` です。  
 このクラスを利用して暗号アイテムを読み取る例は以下のようになります。  
@@ -64,8 +70,8 @@ foreach (var item in items.data)
 }
 ```
 
-また、暗号アイテム読み出し用の追加ヘルパクラスとして `VaultwardenAgent` を含みます。  
-このクラスには暗号アイテム読み出し処理だけを含み、他の操作は含まれません。  
+また、利用方法を簡略化した追加のヘルパクラスとして `VaultwardenAgent` を含みます。  
+このクラスは細かな制御を省いて、主要な関心になると思われるデータの一部のみを扱うメソッドを持っています。  
 このクラスを利用して上記とほぼ同等の、暗号項目を読み取る例は以下のようになります。  
 
 ```csharp
@@ -88,3 +94,21 @@ foreach (var item in items)
 }
 ```
 
+そのほか、Vaultwarden の状態に影響を与えるメソッド郡は `Affected` プロパティ配下に持ちます。  
+以下は待機中の組織メンバーを確認(承認)する例です。  
+
+```csharp
+var service = new Uri(@"http://<your-hosting-server>");
+var ownerMail = "xxxxxxxxx";
+var ownerPass = "yyyyyyy";
+var orgName = "TestOrg";
+using var vaultwarden = await VaultwardenAgent.CreateAsync(service, new(ownerMail, ownerPass));
+var profile = await vaultwarden.Connector.User.GetProfileAsync(vaultwarden.Token);
+var org = profile.organizations.FirstOrDefault(o => o.name == orgName) ?? throw new Exception("Org not found");
+var members = await vaultwarden.Connector.Organization.GetMembersAsync(vaultwarden.Token, org.id);
+foreach (var member in members.data)
+{
+    if (member.status != MembershipStatus.Accepted) continue;
+    await vaultwarden.Affect.ConfirmMemberAsync(org.id, new(member.id, member.userId));
+}
+```

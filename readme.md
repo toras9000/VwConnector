@@ -70,8 +70,8 @@ foreach (var item in items.data)
 }
 ```
 
-It also includes `VaultwardenAgent` as an additional helper class for reading cipher items.  
-This involves only the reading process of the cipher item.  
+It also includes `VaultwardenAgent` as an additional helper class that simplifies its usage.  
+This class omits detailed controls and has methods that handle only a portion of the data that is likely to be of primary interest.  
 An example of a reading that is almost equivalent to the above, using this class, is shown below.  
 
 ```csharp
@@ -94,3 +94,21 @@ foreach (var item in items)
 }
 ```
 
+Other methods that affect the state of Vaultwarden are under the `Affected` property.  
+The following is an example of confirming (approving) a waiting organization member.  
+
+```csharp
+var service = new Uri(@"http://<your-hosting-server>");
+var ownerMail = "xxxxxxxxx";
+var ownerPass = "yyyyyyy";
+var orgName = "TestOrg";
+using var vaultwarden = await VaultwardenAgent.CreateAsync(service, new(ownerMail, ownerPass));
+var profile = await vaultwarden.Connector.User.GetProfileAsync(vaultwarden.Token);
+var org = profile.organizations.FirstOrDefault(o => o.name == orgName) ?? throw new Exception("Org not found");
+var members = await vaultwarden.Connector.Organization.GetMembersAsync(vaultwarden.Token, org.id);
+foreach (var member in members.data)
+{
+    if (member.status != MembershipStatus.Accepted) continue;
+    await vaultwarden.Affect.ConfirmMemberAsync(org.id, new(member.id, member.userId));
+}
+```
