@@ -48,6 +48,42 @@ public class VaultwardenConnectorTests
     }
 
     [TestMethod()]
+    public async Task User_Register()
+    {
+        if (TestServer == null) Assert.Inconclusive();
+        using var vaultwarden = new VaultwardenConnector(TestServer);
+
+        var id = $"{DateTime.Now.Ticks:X16}";
+        var mail = $"user-{id}@myserver.home";
+        var pass = $"user-{id}-pass";
+
+        var validationToken = await vaultwarden.Identity.SendRegisterVerificationMailAsync(new(mail));
+
+        var kdf = new KdfConfig(KdfType.Pbkdf2, 600000);
+        var masterKey = vaultwarden.Utility.CreateMasterKey(mail, pass, kdf);
+        var serverHsah = vaultwarden.Utility.CreateMasterKeyHash(masterKey, pass, 1);
+        var localHsah = vaultwarden.Utility.CreateMasterKeyHash(masterKey, pass, 2);
+
+        var stretchKey = vaultwarden.Utility.CreateStretchKey(masterKey);
+        var newUserKey = SymmetricCryptoKey.From(vaultwarden.Utility.GenerateKeyData());
+        var keyPair = vaultwarden.Utility.GenerateRsaKeyPair();
+        var userKeyEnc = vaultwarden.Utility.EncryptAes(stretchKey, newUserKey.ToBytes(), hmac: true);
+        var prvKeyEnc = vaultwarden.Utility.EncryptAes(newUserKey, keyPair.PrivateKey, hmac: true);
+
+        var register = new RegisterArgs(
+            email: mail,
+            userSymmetricKey: userKeyEnc.BuildString(),
+            userAsymmetricKeys: new(prvKeyEnc.BuildString(), keyPair.PublicKey.EncodeBase64()),
+            masterPasswordHash: serverHsah.EncodeBase64(),
+            emailVerificationToken: validationToken,
+            kdf: kdf.kdf,
+            kdfIterations: kdf.kdfIterations
+        );
+        var result = await vaultwarden.Identity.RegisterFinishAsync(register);
+        result.@object.Should().NotBeNull();
+    }
+
+    [TestMethod()]
     public async Task User_CreateFolder()
     {
         var tester = await ensureTestUserAsync();

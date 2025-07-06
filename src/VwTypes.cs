@@ -122,6 +122,31 @@ public record PasswordConnectTokenResult(
 }
 #endregion
 
+#region Key
+public record KeysData(string encryptedPrivateKey, string publicKey);
+#endregion
+
+#region Register
+public record RegisterVerificationMailArgs(string email, string? name = default);
+
+public record RegisterArgs(
+    string email,
+    string userSymmetricKey,
+    string masterPasswordHash,
+    KeysData? userAsymmetricKeys = default,
+    string? name = default,
+    string? masterPasswordHint = default,
+    string? organizationUserId = default,
+    KdfType? kdf = default, int? kdfIterations = default, long? kdfMemory = default, long? kdfParallelism = default,
+    // Used only from the register/finish endpoint
+    string? emailVerificationToken = default,
+    string? acceptEmergencyAccessId = default,
+    string? acceptEmergencyAccessInviteToken = default,
+    string? orgInviteToken = default
+);
+public record RegisterResult(string @object, string? captchaBypassToken);
+#endregion
+
 #region Prelogin
 public enum KdfType
 {
@@ -129,7 +154,7 @@ public enum KdfType
     Argon2id = 1,
 }
 public record PreloginArgs(string email);
-public record KdfConfig(KdfType kdf, int kdfIterations, long? kdfMemory, long? kdfParallelism);
+public record KdfConfig(KdfType kdf, int kdfIterations, long? kdfMemory = default, long? kdfParallelism = default);
 public record PreloginResult(KdfType kdf, int kdfIterations, long? kdfMemory, long? kdfParallelism) : KdfConfig(kdf, kdfIterations, kdfMemory, kdfParallelism);
 #endregion
 
@@ -189,7 +214,6 @@ public record VwCollectionMembership(string id, bool readOnly, bool hidePassword
 public record CreateFolderArgs(string name, string? id = default);
 public record GetFoldersResult(string @object, VwFolder[] data);
 #endregion
-
 
 #region OrgMembers
 public record OrgMembersArgs(bool? includeCollections = default, bool? includeGroups = default);

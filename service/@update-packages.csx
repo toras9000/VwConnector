@@ -1,5 +1,5 @@
 #r "nuget: Kokuban, 0.2.0"
-#r "nuget: Lestaly, 0.84.0"
+#r "nuget: Lestaly.General, 0.100.0"
 #nullable enable
 using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
@@ -14,12 +14,12 @@ var settings = new
     // Packages and versions to be unified and updated
     Packages = new PackageVersion[]
     {
-        new("Lestaly",                  "0.84.0"),
+        new("Lestaly.General",          "0.100.0"),
         new("Kokuban",                  "0.2.0"),
         new("Microsoft.Playwright",     "1.53.0"),
         new("SmtpServer",               "10.0.1"),
         new("MimeKit",                  "4.12.0"),
-        new("VwConnector",              "1.34.1-rev.1"),
+        new("VwConnector",              "1.34.1-rev.2"),
     },
 };
 

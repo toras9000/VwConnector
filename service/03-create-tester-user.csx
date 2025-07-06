@@ -1,6 +1,6 @@
 #!/usr/bin/env dotnet-script
 #r "nuget: Microsoft.Playwright, 1.53.0"
-#r "nuget: Lestaly, 0.84.0"
+#r "nuget: Lestaly.General, 0.100.0"
 #r "nuget: Kokuban, 0.2.0"
 #nullable enable
 using System.Text.Json;
@@ -18,7 +18,7 @@ return await Paved.ProceedAsync(noPause: Args.RoughContains("--no-pause"), async
 
     WriteLine("Detection compose service");
     var composeFile = ThisSource.RelativeFile("./compose.yml");
-    var port = (await "docker".args("compose", "--file", composeFile, "port", "app", "80").silent().result().success().output(trim: true)).SkipFirstToken(':');
+    var port = (await "docker".args("compose", "--file", composeFile, "port", "app", "80").silent().result().success().output(trim: true)).SkipToken(':');
     var service = new Uri($"http://localhost:{port}");
 
     WriteLine("Invite test user");
@@ -39,7 +39,7 @@ return await Paved.ProceedAsync(noPause: Args.RoughContains("--no-pause"), async
         {
             var lastMail = mailDir.GetFiles("*-text.txt").OrderByDescending(f => f.Name).FirstOrDefault();
             var joinLine = Try.Func(() => lastMail?.ReadAllLines().FirstOrDefault(l => l.StartsWith("Click here to join:") && l.Contains(encUser)), _ => default);
-            if (joinLine != null) { joinUri = new Uri(joinLine.SkipFirstToken(':').Trim().ToString()); break; }
+            if (joinLine != null) { joinUri = new Uri(joinLine.SkipToken(':').Trim().ToString()); break; }
             await Task.Delay(TimeSpan.FromMilliseconds(500), breaker.Token);
         }
     }

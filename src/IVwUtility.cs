@@ -34,13 +34,13 @@ public interface IVwUtility : IVwScope
         return new(publicKey, privateKey);
     }
 
-    public byte[] CreatePasswordHash(string email, string password, KdfConfig config)
+    public byte[] CreatePasswordHash(string email, string password, KdfConfig config, int hashIterations = 1)
     {
         if (config.kdf != KdfType.Pbkdf2) throw new NotSupportedException();
         var passBytes = Encoding.UTF8.GetBytes(password);
         var mailBytes = Encoding.UTF8.GetBytes(email);
         var masterKey = Rfc2898DeriveBytes.Pbkdf2(passBytes, mailBytes, config.kdfIterations, HashAlgorithmName.SHA256, 32);
-        var passHash = Rfc2898DeriveBytes.Pbkdf2(masterKey, passBytes, 1, HashAlgorithmName.SHA256, 32);
+        var passHash = Rfc2898DeriveBytes.Pbkdf2(masterKey, passBytes, hashIterations, HashAlgorithmName.SHA256, 32);
         return passHash;
     }
 
@@ -52,6 +52,14 @@ public interface IVwUtility : IVwScope
         var masterKey = Rfc2898DeriveBytes.Pbkdf2(passBytes, mailBytes, config.kdfIterations, HashAlgorithmName.SHA256, 32);
         return masterKey;
     }
+
+    public byte[] CreateMasterKeyHash(byte[] masterKey, string password, int hashIterations = 1)
+    {
+        var passBytes = Encoding.UTF8.GetBytes(password);
+        var passHash = Rfc2898DeriveBytes.Pbkdf2(masterKey, passBytes, hashIterations, HashAlgorithmName.SHA256, 32);
+        return passHash;
+    }
+
 
     public byte[] CreateExpandKey(byte[] key, string info)
     {
@@ -131,30 +139,30 @@ public interface IVwUtility : IVwScope
     {
         switch (encripted.Type)
         {
-        case EncryptionType.AesCbc256:
-        case EncryptionType.AesCbc128_HmacSha256:
-        case EncryptionType.AesCbc256_HmacSha256:
-            using (var aes = Aes.Create())
-            {
-                aes.Key = key;
-                return aes.DecryptCbc(encripted.Data, encripted.IV!);
-            }
-        case EncryptionType.Rsa2048_OaepSha1:
-        case EncryptionType.Rsa2048_OaepSha1_HmacSha256:
-            using (var rsa = RSA.Create())
-            {
-                rsa.ImportPkcs8PrivateKey(key, out _);
-                return rsa.Decrypt(encripted.Data, RSAEncryptionPadding.OaepSHA1);
-            }
-        case EncryptionType.Rsa2048_OaepSha256:
-        case EncryptionType.Rsa2048_OaepSha256_HmacSha256:
-            using (var rsa = RSA.Create())
-            {
-                rsa.ImportPkcs8PrivateKey(key, out _);
-                return rsa.Decrypt(encripted.Data, RSAEncryptionPadding.OaepSHA256);
-            }
-        default:
-            throw new InvalidDataException();
+            case EncryptionType.AesCbc256:
+            case EncryptionType.AesCbc128_HmacSha256:
+            case EncryptionType.AesCbc256_HmacSha256:
+                using (var aes = Aes.Create())
+                {
+                    aes.Key = key;
+                    return aes.DecryptCbc(encripted.Data, encripted.IV!);
+                }
+            case EncryptionType.Rsa2048_OaepSha1:
+            case EncryptionType.Rsa2048_OaepSha1_HmacSha256:
+                using (var rsa = RSA.Create())
+                {
+                    rsa.ImportPkcs8PrivateKey(key, out _);
+                    return rsa.Decrypt(encripted.Data, RSAEncryptionPadding.OaepSHA1);
+                }
+            case EncryptionType.Rsa2048_OaepSha256:
+            case EncryptionType.Rsa2048_OaepSha256_HmacSha256:
+                using (var rsa = RSA.Create())
+                {
+                    rsa.ImportPkcs8PrivateKey(key, out _);
+                    return rsa.Decrypt(encripted.Data, RSAEncryptionPadding.OaepSHA256);
+                }
+            default:
+                throw new InvalidDataException();
         }
     }
 }

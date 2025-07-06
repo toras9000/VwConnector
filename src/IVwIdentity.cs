@@ -35,4 +35,28 @@ public interface IVwIdentity : IVwScope
         var result = await response.EnsureSuccessStatusCode().Content.ReadFromJsonAsync<PreloginResult>(cancelToken) ?? throw new Exception("failed to get result");
         return result;
     }
+
+    public async Task<string> SendRegisterVerificationMailAsync(RegisterVerificationMailArgs args, CancellationToken cancelToken = default)
+    {
+        using var request = CreateJsonRequest(HttpMethod.Post, "identity/accounts/register/send-verification-email", default, args);
+        using var response = await this.Http.SendAsync(request, cancelToken);
+        var result = await response.EnsureSuccessStatusCode().Content.ReadFromJsonAsync<string>(cancelToken) ?? throw new Exception("failed to get result");
+        return result;
+    }
+
+    public async Task<RegisterResult> RegisterAsync(RegisterArgs args, CancellationToken cancelToken = default)
+    {
+        using var request = CreateJsonRequest(HttpMethod.Post, $"identity/accounts/register", default, args);
+        using var response = await this.Http.SendAsync(request, cancelToken);
+        var result = await response.EnsureSuccessStatusCode().Content.ReadFromJsonAsync<RegisterResult>(cancelToken) ?? throw new Exception("failed to get result");
+        return result;
+    }
+
+    public async Task<RegisterResult> RegisterFinishAsync(RegisterArgs args, CancellationToken cancelToken = default)
+    {
+        using var request = CreateJsonRequest(HttpMethod.Post, $"identity/accounts/register/finish", default, args);
+        using var response = await this.Http.SendAsync(request, cancelToken);
+        var result = await response.EnsureSuccessStatusCode().Content.ReadFromJsonAsync<RegisterResult>(cancelToken) ?? throw new Exception("failed to get result");
+        return result;
+    }
 }

@@ -24,6 +24,20 @@ public class VaultwardenAgentTests
     }
 
     [TestMethod()]
+    public async Task RegisterUserAsync()
+    {
+        if (TestServer == null) Assert.Inconclusive();
+
+        using var vaultwarden = await VaultwardenAgent.CreateAsync(TestServer, new(TestUser, TestPass));
+
+        var id = $"{DateTime.Now.Ticks:X16}";
+        var mail = $"user-{id}@myserver.home";
+        var pass = $"user-{id}-pass";
+
+        await vaultwarden.Affect.RegisterUserNoSmtpAsync(new(mail, pass));
+    }
+
+    [TestMethod()]
     public async Task CreateFolderAndItemAsync()
     {
         if (TestServer == null) Assert.Inconclusive();
@@ -72,4 +86,20 @@ public class VaultwardenAgentTests
         var items = await vaultwarden.GetItemsAsync();
     }
 
+    [TestMethod()]
+    public async Task ConfirmMemberAsync()
+    {
+        if (TestServer == null) Assert.Inconclusive();
+
+        var orgName = "TestOrg";
+        using var vaultwarden = await VaultwardenAgent.CreateAsync(TestServer, new(TestUser, TestPass));
+        var profile = await vaultwarden.Connector.User.GetProfileAsync(vaultwarden.Token);
+        var org = profile.organizations.FirstOrDefault(o => o.name == orgName) ?? throw new Exception("Org not found");
+        var members = await vaultwarden.Connector.Organization.GetMembersAsync(vaultwarden.Token, org.id);
+        foreach (var member in members.data)
+        {
+            if (member.status != MembershipStatus.Accepted) continue;
+            await vaultwarden.Affect.ConfirmMemberAsync(org.id, new(member.id, member.userId));
+        }
+    }
 }
