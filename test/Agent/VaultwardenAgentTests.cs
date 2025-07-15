@@ -24,20 +24,6 @@ public class VaultwardenAgentTests
     }
 
     [TestMethod()]
-    public async Task RegisterUserAsync()
-    {
-        if (TestServer == null) Assert.Inconclusive();
-
-        using var vaultwarden = await VaultwardenAgent.CreateAsync(TestServer, new(TestUser, TestPass));
-
-        var id = $"{DateTime.Now.Ticks:X16}";
-        var mail = $"user-{id}@myserver.home";
-        var pass = $"user-{id}-pass";
-
-        await vaultwarden.Affect.RegisterUserNoSmtpAsync(new(mail, pass));
-    }
-
-    [TestMethod()]
     public async Task CreateFolderAndItemAsync()
     {
         if (TestServer == null) Assert.Inconclusive();

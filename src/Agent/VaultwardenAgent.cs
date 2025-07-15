@@ -20,8 +20,6 @@ public record DecryptedCipherItem(
 
 public record DecryptedCollection(string Id, string OrgId, string Name, string[] ExternalId);
 
-public record AgentRegisterUserArgs(string Mail, string Password, string? Name = default);
-
 public record AgentCreateCipherArgs(string Name, string? FolderId = default, string? OrgId = default, string? Notes = default);
 public record AgentCreatedCipher(string Id);
 public record AgentCreateLoginArgs(string? Username = default, string? Password = default, string? Totp = default, string? Uri = default);
@@ -34,8 +32,6 @@ public record AgentConfirmMemberArgs(string MemberId, string UserId);
 
 public interface IAgentAffectOperators
 {
-    ValueTask RegisterUserAsync(AgentRegisterUserArgs args, string verificationToken, CancellationToken cancelToken = default);
-    ValueTask RegisterUserNoSmtpAsync(AgentRegisterUserArgs args, CancellationToken cancelToken = default);
     ValueTask<AgentCreatedCipher> CreateCipherItemLoginAsync(AgentCreateCipherArgs cipher, AgentCreateLoginArgs login, string[]? collectionIds = default, CancellationToken cancelToken = default);
     ValueTask<AgentCreatedCipher> CreateCipherItemNotesAsync(AgentCreateCipherArgs cipher, string[]? collectionIds = default, CancellationToken cancelToken = default);
     ValueTask<AgentCreatedFolder> CreateFolderAsync(string name, CancellationToken cancelToken = default);
@@ -140,38 +136,6 @@ public class VaultwardenAgent : IDisposable
     private class AffectOperators : IAgentAffectOperators
     {
         public AffectOperators(VaultwardenAgent outer) { this.outer = outer; }
-
-        public async ValueTask RegisterUserAsync(AgentRegisterUserArgs args, string verificationToken, CancellationToken cancelToken)
-        {
-            var kdf = new KdfConfig(KdfType.Pbkdf2, 600000);
-            var masterKey = this.outer.connector.Utility.CreateMasterKey(args.Mail, args.Password, kdf);
-            var serverHsah = this.outer.connector.Utility.CreateMasterKeyHash(masterKey, args.Password, 1);
-            var localHsah = this.outer.connector.Utility.CreateMasterKeyHash(masterKey, args.Password, 2);
-
-            var stretchKey = this.outer.connector.Utility.CreateStretchKey(masterKey);
-            var newUserKey = SymmetricCryptoKey.From(this.outer.connector.Utility.GenerateKeyData());
-            var keyPair = this.outer.connector.Utility.GenerateRsaKeyPair();
-            var userKeyEnc = this.outer.connector.Utility.EncryptAes(stretchKey, newUserKey.ToBytes(), hmac: true);
-            var prvKeyEnc = this.outer.connector.Utility.EncryptAes(newUserKey, keyPair.PrivateKey, hmac: true);
-
-            var register = new RegisterArgs(
-                email: args.Mail,
-                userSymmetricKey: userKeyEnc.BuildString(),
-                userAsymmetricKeys: new(prvKeyEnc.BuildString(), keyPair.PublicKey.EncodeBase64()),
-                masterPasswordHash: serverHsah.EncodeBase64(),
-                emailVerificationToken: verificationToken,
-                name: args.Name,
-                kdf: kdf.kdf,
-                kdfIterations: kdf.kdfIterations
-            );
-            await this.outer.connector.Identity.RegisterFinishAsync(register, cancelToken);
-        }
-
-        public async ValueTask RegisterUserNoSmtpAsync(AgentRegisterUserArgs args, CancellationToken cancelToken)
-        {
-            var verificationToken = await this.outer.connector.Identity.SendRegisterVerificationMailAsync(new(args.Mail, args.Name), cancelToken);
-            await RegisterUserAsync(args, verificationToken, cancelToken);
-        }
 
         public async ValueTask<AgentCreatedCipher> CreateCipherItemLoginAsync(AgentCreateCipherArgs cipher, AgentCreateLoginArgs login, string[]? collectionIds, CancellationToken cancelToken)
         {

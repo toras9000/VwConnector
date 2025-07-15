@@ -19,6 +19,9 @@ public interface IVwConnector
     /// <summary>Adminエンドポイント関連のメソッドグループ</summary>
     public IVwAdmin Admin { get; }
 
+    /// <summary>アカウント系のメソッドグループ</summary>
+    public IVwAccount Account { get; }
+
     /// <summary>ユーザ情報関連のメソッドグループ</summary>
     public IVwUser User { get; }
 
@@ -45,14 +48,15 @@ public class VaultwardenConnector : IVwConnector, IDisposable
         this.BaseUri = baseUri;
         this.http = new HttpClient(new HttpClientHandler() { UseCookies = false, });
 
-        this.scopeUtility = new VmUtility(this);
-        this.scopeIdentity = new VwIdentity(this);
-        this.scopeAdmin = new VwAdmin(this);
-        this.scopeUser = new VwUser(this);
-        this.scopeOrg = new VwOrganization(this);
-        this.scopeCipher = new VwCipher(this);
-        this.scopePublic = new VwPublic(this);
-        this.scopeRaw = new VwRaw(this);
+        this.Utility = new VmUtility(this);
+        this.Identity = new VwIdentity(this);
+        this.Admin = new VwAdmin(this);
+        this.Account = new VwAccount(this);
+        this.User = new VwUser(this);
+        this.Organization = new VwOrganization(this);
+        this.Cipher = new VwCipher(this);
+        this.Public = new VwPublic(this);
+        this.Raw = new VwRaw(this);
     }
 
     /// <summary>サービスベースアドレス</summary>
@@ -67,28 +71,31 @@ public class VaultwardenConnector : IVwConnector, IDisposable
 
     /// <summary>ユーティリティ処理関連のメソッドグループ</summary>
     /// <remarks>このグループに含まれるメソッドはネットワーク接続を利用しないローカル処理です</remarks>
-    public IVwUtility Utility => this.scopeUtility;
+    public IVwUtility Utility { get; }
 
     /// <summary>接続系のメソッドグループ</summary>
-    public IVwIdentity Identity => this.scopeIdentity;
+    public IVwIdentity Identity { get; }
 
     /// <summary>Adminエンドポイント関連のメソッドグループ</summary>
-    public IVwAdmin Admin => this.scopeAdmin;
+    public IVwAdmin Admin { get; }
+
+    /// <summary>アカウント系のメソッドグループ</summary>
+    public IVwAccount Account { get; }
 
     /// <summary>ユーザ情報関連のメソッドグループ</summary>
-    public IVwUser User => this.scopeUser;
+    public IVwUser User { get; }
 
     /// <summary>組織関連のメソッドグループ</summary>
-    public IVwOrganization Organization => this.scopeOrg;
+    public IVwOrganization Organization { get; }
 
     /// <summary>保管項目関連のメソッドグループ</summary>
-    public IVwCipher Cipher => this.scopeCipher;
+    public IVwCipher Cipher { get; }
 
     /// <summary>Bitwarden Public API関連のメソッドグループ</summary>
-    public IVwPublic Public => this.scopePublic;
+    public IVwPublic Public { get; }
 
     /// <summary>任意エンドポイントへの要求関連</summary>
-    public IVwRaw Raw => this.scopeRaw;
+    public IVwRaw Raw { get; }
 
     public void Dispose()
     {
@@ -112,7 +119,7 @@ public class VaultwardenConnector : IVwConnector, IDisposable
 
     private class VwScopeBase(VaultwardenConnector outer) : IVwScope
     {
-        Uri IVwScope.BaseUri => outer.BaseUri;
+        IVwConnector IVwScope.Connector => outer;
         JsonSerializerOptions IVwScope.SerializeOptions => outer.apiSerializeOptions;
         HttpClient IVwScope.Http => outer.http;
     }
@@ -120,6 +127,7 @@ public class VaultwardenConnector : IVwConnector, IDisposable
     private class VmUtility(VaultwardenConnector outer) : VwScopeBase(outer), IVwUtility;
     private class VwIdentity(VaultwardenConnector outer) : VwScopeBase(outer), IVwIdentity;
     private class VwAdmin(VaultwardenConnector outer) : VwScopeBase(outer), IVwAdmin;
+    private class VwAccount(VaultwardenConnector outer) : VwScopeBase(outer), IVwAccount;
     private class VwUser(VaultwardenConnector outer) : VwScopeBase(outer), IVwUser;
     private class VwOrganization(VaultwardenConnector outer) : VwScopeBase(outer), IVwOrganization;
     private class VwCipher(VaultwardenConnector outer) : VwScopeBase(outer), IVwCipher;
@@ -129,13 +137,4 @@ public class VaultwardenConnector : IVwConnector, IDisposable
     private HttpClient http;
     private bool disposed;
     private readonly JsonSerializerOptions apiSerializeOptions = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, };
-
-    private readonly IVwUtility scopeUtility;
-    private readonly IVwIdentity scopeIdentity;
-    private readonly IVwAdmin scopeAdmin;
-    private readonly IVwUser scopeUser;
-    private readonly IVwOrganization scopeOrg;
-    private readonly IVwCipher scopeCipher;
-    private readonly IVwPublic scopePublic;
-    private readonly IVwRaw scopeRaw;
 }

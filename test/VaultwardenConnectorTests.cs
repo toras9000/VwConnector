@@ -51,12 +51,12 @@ public class VaultwardenConnectorTests
     public async Task User_Register()
     {
         if (TestServer == null) Assert.Inconclusive();
-        using var vaultwarden = new VaultwardenConnector(TestServer);
 
         var id = $"{DateTime.Now.Ticks:X16}";
         var mail = $"user-{id}@myserver.home";
         var pass = $"user-{id}-pass";
 
+        using var vaultwarden = new VaultwardenConnector(TestServer);
         var validationToken = await vaultwarden.Identity.SendRegisterVerificationMailAsync(new(mail));
 
         var kdf = new KdfConfig(KdfType.Pbkdf2, 600000);
@@ -81,6 +81,20 @@ public class VaultwardenConnectorTests
         );
         var result = await vaultwarden.Identity.RegisterFinishAsync(register);
         result.@object.Should().NotBeNull();
+    }
+
+    [TestMethod()]
+    public async Task RegisterUserAsync()
+    {
+        if (TestServer == null) Assert.Inconclusive();
+
+        using var vaultwarden = new VaultwardenConnector(TestServer);
+
+        var id = $"{DateTime.Now.Ticks:X16}";
+        var mail = $"user-{id}@myserver.home";
+        var pass = $"user-{id}-pass";
+
+        await vaultwarden.Account.RegisterUserNoSmtpAsync(new(mail, pass));
     }
 
     [TestMethod()]

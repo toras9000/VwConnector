@@ -6,13 +6,13 @@ namespace VwConnector;
 
 public interface IVwScope
 {
-    internal Uri BaseUri { get; }
+    internal IVwConnector Connector { get; }
     internal JsonSerializerOptions SerializeOptions { get; }
     internal HttpClient Http { get; }
 
     internal HttpRequestMessage CreateRequest(HttpMethod method, string endpoint, ConnectTokenResult? token, HttpContent? content = default)
     {
-        var apiEndpoint = new Uri(this.BaseUri, endpoint);
+        var apiEndpoint = new Uri(this.Connector.BaseUri, endpoint);
         var message = new HttpRequestMessage(method, apiEndpoint);
         if (token != null) message.Headers.Authorization = new AuthenticationHeaderValue(token.token_type, token.access_token);
         if (content != null) message.Content = content;
