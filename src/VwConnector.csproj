@@ -22,7 +22,7 @@
   <PropertyGroup>
     <Authors>toras9000</Authors>
     <Company />
-    <Version>1.34.1-rev.2</Version>
+    <Version>1.34.1-rev.3</Version>
   </PropertyGroup>
   <PropertyGroup>
     <PackageProjectUrl>https://github.com/toras9000/VwConnector</PackageProjectUrl>
