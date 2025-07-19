@@ -274,6 +274,10 @@ public record ImportOrgMember(string externalId, string? email, bool deleted);
 public record ImportOrgArgs(bool overwriteExisting, ImportOrgMember[] members, ImportOrgGroup[] groups);
 #endregion
 
+#region OrgAccept
+public record AcceptInviteArgs(string token, string? resetPasswordKey = default);
+#endregion
+
 #region OrgConfirm
 public record ConfirmMemberArgs(string key);
 #endregion

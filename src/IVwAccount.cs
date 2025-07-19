@@ -4,7 +4,36 @@ public record AccountRegisterUserArgs(string Mail, string Password, string? Name
 
 public interface IVwAccount : IVwScope
 {
-    public async ValueTask RegisterUserAsync(AccountRegisterUserArgs args, string verificationToken, CancellationToken cancelToken = default)
+    public async ValueTask RegisterUserEmailAsync(AccountRegisterUserArgs args, string verificationToken, CancellationToken cancelToken = default)
+    {
+        var register = createRegisterArgs(args) with
+        {
+            emailVerificationToken = verificationToken,
+        };
+        await this.Connector.Identity.RegisterFinishAsync(register, cancelToken);
+    }
+
+    public async ValueTask RegisterUserInviteAsync(AccountRegisterUserArgs args, string orgUserId, string inviteToken, CancellationToken cancelToken = default)
+    {
+        var register = createRegisterArgs(args) with
+        {
+            organizationUserId = orgUserId,
+            orgInviteToken = inviteToken,
+        };
+        await this.Connector.Identity.RegisterFinishAsync(register, cancelToken);
+    }
+
+    public async ValueTask RegisterUserNoSmtpAsync(AccountRegisterUserArgs args, CancellationToken cancelToken = default)
+    {
+        var verificationToken = await this.Connector.Identity.SendRegisterVerificationMailAsync(new(args.Mail, args.Name), cancelToken);
+        var register = createRegisterArgs(args) with
+        {
+            emailVerificationToken = verificationToken,
+        };
+        await this.Connector.Identity.RegisterFinishAsync(register, cancelToken);
+    }
+
+    private RegisterArgs createRegisterArgs(AccountRegisterUserArgs args)
     {
         var kdf = new KdfConfig(KdfType.Pbkdf2, 600000);
         var masterKey = this.Connector.Utility.CreateMasterKey(args.Mail, args.Password, kdf);
@@ -22,17 +51,10 @@ public interface IVwAccount : IVwScope
             userSymmetricKey: userKeyEnc.BuildString(),
             userAsymmetricKeys: new(prvKeyEnc.BuildString(), keyPair.PublicKey.EncodeBase64()),
             masterPasswordHash: serverHsah.EncodeBase64(),
-            emailVerificationToken: verificationToken,
             name: args.Name,
             kdf: kdf.kdf,
             kdfIterations: kdf.kdfIterations
         );
-        await this.Connector.Identity.RegisterFinishAsync(register, cancelToken);
-    }
-
-    public async ValueTask RegisterUserNoSmtpAsync(AccountRegisterUserArgs args, CancellationToken cancelToken = default)
-    {
-        var verificationToken = await this.Connector.Identity.SendRegisterVerificationMailAsync(new(args.Mail, args.Name), cancelToken);
-        await RegisterUserAsync(args, verificationToken, cancelToken);
+        return register;
     }
 }

@@ -65,9 +65,10 @@ public class VaultwardenAgent : IDisposable
     }
 
     public ConnectTokenResult Token => this.session.Token;
+    public VwUserProfile Profile => this.session.Profile;
+    public KdfConfig Kdf => this.session.Kdf;
 
     public IVwConnector Connector => this.connector;
-
     public IAgentAffectOperators Affect { get; }
 
     public DecryptedCipherItem? DecryptItem(CipherItem item)
@@ -252,6 +253,7 @@ public class VaultwardenAgent : IDisposable
 
     private record OrgInfo(VwOrganizationProfile Profile, SymmetricCryptoKey Key);
     private record SessionContext(
+        UserContext UserContext,
         ConnectTokenResult Token,
         string RefreshToken,
         KdfConfig Kdf,
@@ -295,7 +297,7 @@ public class VaultwardenAgent : IDisposable
             o => new OrgInfo(o, SymmetricCryptoKey.From(connector.Utility.Decrypt(userPrivateKey, EncryptedData.Parse(o.key))))
         );
         var folders = userFolders.data.ToDictionary(f => f.id);
-        return new(userToken, userToken.refresh_token, userToken.ToKdfConfig(), userProfile, userKey, userPrivateKey, userPubKeyBin, folders, orgKeys);
+        return new(user, userToken, userToken.refresh_token, userToken.ToKdfConfig(), userProfile, userKey, userPrivateKey, userPubKeyBin, folders, orgKeys);
     }
 
     [return: NotNullIfNotNull(nameof(text))]
