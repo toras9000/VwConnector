@@ -202,7 +202,7 @@ public class VaultwardenAgent : IDisposable
                 collectionName: defCollectionEnc.BuildString(),
                 billingEmail: this.outer.session.Profile.email,
                 key: encOrgKey.BuildString(),
-                keys: [keyPair.PublicKey.EncodeBase64(), prvKeyEnc.BuildString()],
+                keys: new(prvKeyEnc.BuildString(), keyPair.PublicKey.EncodeBase64()),
                 planType: PlanType.Free
             );
             var orgResult = await this.outer.connector.Organization.CreateAsync(this.outer.session.Token, orgArgs, cancelToken);

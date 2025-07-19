@@ -235,7 +235,7 @@ public record OrgCollectionsResult(string @object, OrgCollection[] data);
 #endregion
 
 #region CreateOrg
-public record CreateOrgArgs(string name, string billingEmail, string key, string[]? keys, string collectionName, PlanType planType);
+public record CreateOrgArgs(string name, string billingEmail, string key, KeysData? keys, string collectionName, PlanType planType);
 
 public record CreateOrgResult(
     string @object, string id, string name, string billingEmail,
