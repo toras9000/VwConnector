@@ -1,16 +1,13 @@
 #!/usr/bin/env dotnet-script
-#r "nuget: Microsoft.Playwright, 1.53.0"
+#r "nuget: VwConnector, 1.34.1-rev.6"
 #r "nuget: Lestaly.General, 0.100.0"
 #r "nuget: Kokuban, 0.2.0"
 #nullable enable
-using System.Text.Json;
-using Microsoft.Playwright;
+using System.Web;
 using Kokuban;
 using Lestaly;
 using Lestaly.Cx;
-using System.Threading;
-using System.Net.Http;
-using System.Net.Http.Json;
+using VwConnector;
 
 return await Paved.ProceedAsync(noPause: Args.RoughContains("--no-pause"), async () =>
 {
@@ -25,9 +22,9 @@ return await Paved.ProceedAsync(noPause: Args.RoughContains("--no-pause"), async
     const string TestAdminPass = "admin-pass";
     const string TestUser = "tester@myserver.home";
     const string TestPass = "tester-password";
-    using var http = new HttpClient();
-    var adminToken = await http.GetAdminTokenAsync(service, TestAdminPass, signal.Token);
-    var testUser = await http.InviteAsync(service, adminToken, TestUser, signal.Token);
+    using var vaultwarden = new VaultwardenConnector(service);
+    var adminToken = await vaultwarden.Admin.GetTokenAsync(TestAdminPass);
+    var testUser = await vaultwarden.Admin.InviteAsync(adminToken, TestUser, signal.Token);
 
     WriteLine("Detection invite mail");
     var joinUri = default(Uri);
@@ -44,50 +41,11 @@ return await Paved.ProceedAsync(noPause: Args.RoughContains("--no-pause"), async
         }
     }
 
-    WriteLine("Prepare playwright");
-    var packageVer = typeof(Microsoft.Playwright.Program).Assembly.GetName()?.Version?.ToString(3) ?? "*";
-    var packageDir = SpecialFolder.UserProfile().FindPathDirectory([".nuget", "packages", "Microsoft.Playwright", packageVer], MatchCasing.CaseInsensitive);
-    Environment.SetEnvironmentVariable("PLAYWRIGHT_DRIVER_SEARCH_PATH", packageDir?.FullName);
-    Microsoft.Playwright.Program.Main(["install", "chromium", "--with-deps"]);
-
     WriteLine("Register test user");
-    using var playwright = await Playwright.CreateAsync();
-    await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true, });
-    var page = await browser.NewPageAsync();
-    {
-        var response = await page.GotoAsync(joinUri.AbsoluteUri) ?? throw new PavedMessageException("Cannot access register page");
-        await page.Locator("input[id='input-password-form_new-password']").FillAsync(TestPass);
-        await page.Locator("input[id='input-password-form_confirm-new-password']").FillAsync(TestPass);
-        await page.Locator("button[type='submit']").ClickAsync();
-        await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-    }
+    var joinQuery = HttpUtility.ParseQueryString(joinUri.AbsoluteUri.SkipToken('?').ToString());
+    var orgUserId = joinQuery["organizationUserId"] ?? "";
+    var inviteToken = joinQuery["token"] ?? "";
+    await vaultwarden.Account.RegisterUserInviteAsync(new(TestUser, TestPass), orgUserId, inviteToken, signal.Token);
     WriteLine(".. Completed");
 
 });
-
-public static async Task<string> GetAdminTokenAsync(this HttpClient self, Uri serivice, string password, CancellationToken cancelToken = default)
-{
-    using var message = new HttpRequestMessage(HttpMethod.Post, new Uri(serivice, "admin"));
-    message.Content = new FormUrlEncodedContent([KeyValuePair.Create("token", password)]);
-    using var response = await self.SendAsync(message, cancelToken);
-    await response.EnsureSuccessStatusCode().Content.ReadAsStringAsync(cancelToken);
-    if (!response.Headers.TryGetValues("Set-Cookie", out var cookies)) throw new Exception("failed to get token");
-    var token = cookies.SelectMany(cookie => cookie.Split(';'))
-        .Select(entry => entry.Split('='))
-        .Where(entry => entry.Length == 2 && entry[0].Trim().Equals("VW_ADMIN", StringComparison.OrdinalIgnoreCase))
-        .Select(entry => entry[1])
-        .FirstOrDefault();
-    return token ?? throw new Exception("failed to get token");
-}
-
-public record VwUser(string id, string name, string email);
-
-public static async Task<VwUser> InviteAsync(this HttpClient self, Uri serivice, string token, string email, CancellationToken cancelToken = default)
-{
-    using var message = new HttpRequestMessage(HttpMethod.Post, new Uri(serivice, "admin/invite"));
-    message.Content = JsonContent.Create(new { email, });
-    message.Headers.Add("Cookie", [$"VW_ADMIN={token}"]);
-    using var response = await self.SendAsync(message, cancelToken);
-    var result = await response.EnsureSuccessStatusCode().Content.ReadFromJsonAsync<VwUser>(cancelToken) ?? throw new Exception("failed to request");
-    return result;
-}

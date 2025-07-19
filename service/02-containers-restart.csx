@@ -2,7 +2,6 @@
 #r "nuget: Lestaly.General, 0.100.0"
 #r "nuget: Kokuban, 0.2.0"
 #nullable enable
-using System.Threading;
 using Kokuban;
 using Lestaly;
 using Lestaly.Cx;

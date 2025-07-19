@@ -1,7 +1,7 @@
 #!/usr/bin/env dotnet-script
+#r "nuget: VwConnector, 1.34.1-rev.6"
 #r "nuget: Lestaly.General, 0.100.0"
 #r "nuget: Kokuban, 0.2.0"
-#r "nuget: VwConnector, 1.34.1-rev.2"
 #nullable enable
 using Kokuban;
 using Lestaly;
