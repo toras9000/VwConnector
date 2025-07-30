@@ -18,7 +18,7 @@ return await Paved.ProceedAsync(noPause: Args.RoughContains("--no-pause"), async
     var port = (await "docker".args("compose", "--file", composeFile, "port", "app", "80").silent().result().success().output(trim: true)).SkipToken(':');
     var service = new Uri($"http://localhost:{port}");
 
-    WriteLine("Invite test user");
+    WriteLine("Invite tester user");
     const string TestAdminPass = "admin-pass";
     const string TestUser = "tester@myserver.home";
     const string TestPass = "tester-password";
@@ -41,11 +41,25 @@ return await Paved.ProceedAsync(noPause: Args.RoughContains("--no-pause"), async
         }
     }
 
-    WriteLine("Register test user");
+    WriteLine("Register tester user");
     var joinQuery = HttpUtility.ParseQueryString(joinUri.AbsoluteUri.SkipToken('?').ToString());
     var orgUserId = joinQuery["organizationUserId"] ?? "";
     var inviteToken = joinQuery["token"] ?? "";
     await vaultwarden.Account.RegisterUserInviteAsync(new(TestUser, TestPass), orgUserId, inviteToken, signal.Token);
+    WriteLine(".. Completed");
+
+    WriteLine("Register testee user");
+    var testtees = new[]
+    {
+        new { Mail = "testee1@myserver.home", Pass = "testee1-pass", },
+        new { Mail = "testee2@myserver.home", Pass = "testee2-pass", },
+    };
+    WriteLine("Register testee user");
+    foreach (var testee in testtees)
+    {
+        WriteLine($".. {testee.Mail}");
+        await vaultwarden.Account.RegisterUserNoSmtpAsync(new(testee.Mail, testee.Pass), signal.Token);
+    }
     WriteLine(".. Completed");
 
 });

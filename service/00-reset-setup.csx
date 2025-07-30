@@ -10,6 +10,7 @@ return await Paved.ProceedAsync(async () =>
 {
     await "dotnet".args("script", ThisSource.RelativeFile("01-containers-volume-delete.csx"), "--no-pause").echo();
     await "dotnet".args("script", ThisSource.RelativeFile("02-containers-restart.csx"), "--no-pause").echo();
-    await "dotnet".args("script", ThisSource.RelativeFile("03-create-tester-user.csx"), "--no-pause").echo();
+    await "dotnet".args("script", ThisSource.RelativeFile("03-create-test-users.csx"), "--no-pause").echo();
+    await "dotnet".args("script", ThisSource.RelativeFile("04-create-test-org.csx"), "--no-pause").echo();
     await "dotnet".args("script", ThisSource.RelativeFile("@show-service.csx"), "--no-pause").echo();
 });
