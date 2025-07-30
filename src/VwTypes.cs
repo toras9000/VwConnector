@@ -274,6 +274,17 @@ public record ImportOrgMember(string externalId, string? email, bool deleted);
 public record ImportOrgArgs(bool overwriteExisting, ImportOrgMember[] members, ImportOrgGroup[] groups);
 #endregion
 
+#region OrgInvite
+public enum InviteMembershipType
+{
+    Owner = 0,
+    Admin = 1,
+    User = 2,
+    Manager = 3,
+}
+public record InviteOrgMemberArgs(InviteMembershipType type, string[] emails, string[] groups, VwCollection[]? collections = default, IDictionary<string, object>? permissions = default);
+#endregion
+
 #region OrgAccept
 public record AcceptInviteArgs(string token, string? resetPasswordKey = default);
 #endregion

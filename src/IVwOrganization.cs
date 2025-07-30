@@ -39,6 +39,14 @@ public interface IVwOrganization : IVwScope
         return result;
     }
 
+    public async Task InviteUserAsync(ConnectTokenResult token, string orgId, InviteOrgMemberArgs args, CancellationToken cancelToken = default)
+    {
+        var encOrgId = Uri.EscapeDataString(orgId);
+        using var request = CreateJsonRequest(HttpMethod.Post, $"api/organizations/{encOrgId}/users/invite", token, args);
+        using var response = await this.Http.SendAsync(request, cancelToken);
+        await response.EnsureSuccessStatusCode().Content.ReadAsStringAsync(cancelToken);
+    }
+
     public async Task AcceptInviteAsync(ConnectTokenResult token, string orgId, string memberId, AcceptInviteArgs args, CancellationToken cancelToken = default)
     {
         var encOrgId = Uri.EscapeDataString(orgId);

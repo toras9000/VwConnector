@@ -73,14 +73,35 @@ public class VaultwardenAgentTests
     }
 
     [TestMethod()]
+    public async Task InviteUserAsync()
+    {
+        if (TestServer == null) Assert.Inconclusive();
+
+        using var vaultwarden = await VaultwardenAgent.CreateAsync(TestServer, new(TestUser, TestPass));
+
+        var id = $"{DateTime.Now.Ticks:X16}";
+
+        var orgName = $"TestOrg-{id}";
+        var org = await vaultwarden.Affect.CreateOrganizationAsync(orgName, "default-collention");
+
+        var userMail = $"user-{id}@myserver.home";
+        var userPass = $"user-{id}-pass";
+        await vaultwarden.Connector.Account.RegisterUserNoSmtpAsync(new(userMail, userPass));
+
+        var inviteArgs = new InviteOrgMemberArgs(InviteMembershipType.User, emails: [userMail], groups: []);
+        await vaultwarden.Connector.Organization.InviteUserAsync(vaultwarden.Token, org.Id, inviteArgs);
+    }
+
+    [TestMethod()]
     public async Task ConfirmMemberAsync()
     {
         if (TestServer == null) Assert.Inconclusive();
 
-        var orgName = "TestOrg";
         using var vaultwarden = await VaultwardenAgent.CreateAsync(TestServer, new(TestUser, TestPass));
-        var profile = await vaultwarden.Connector.User.GetProfileAsync(vaultwarden.Token);
-        var org = profile.organizations.FirstOrDefault(o => o.name == orgName) ?? throw new Exception("Org not found");
+
+        var orgName = $"TestOrg";
+        var org = vaultwarden.Profile.organizations.FirstOrDefault(o => o.name == orgName) ?? throw new Exception("Org not found");
+
         var members = await vaultwarden.Connector.Organization.GetMembersAsync(vaultwarden.Token, org.id);
         foreach (var member in members.data)
         {
